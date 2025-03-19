@@ -92,6 +92,8 @@ class ClientUDP
                     receivedBytes = udpClient.Receive(ref serverEndpoint);
                     serverResponse = Encoding.UTF8.GetString(receivedBytes);
                     Console.WriteLine($"Received from server: {serverResponse}");
+                    // test
+
                 }
             }
             catch (Exception ex)
