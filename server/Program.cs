@@ -32,12 +32,25 @@ class ServerUDP
     static string configFile = "../Setting.json";
     static string configContent = File.ReadAllText(configFile);
     static Setting? setting = JsonSerializer.Deserialize<Setting>(configContent);
+    static string dnsRecordsFile = "./DNSrecords.json";
+    static List<DNSRecord>? dnsRecords;
 
     public static void start()
     {
         if (setting == null)
         {
             Console.WriteLine("Failed to load settings.");
+            return;
+        }
+
+        if (File.Exists(dnsRecordsFile))
+        {
+            string dnsContent = File.ReadAllText(dnsRecordsFile);
+            dnsRecords = JsonSerializer.Deserialize<List<DNSRecord>>(dnsContent);
+        }
+        else
+        {
+            Console.WriteLine("[SERVER] DNS records file not found.");
             return;
         }
 
@@ -58,21 +71,58 @@ class ServerUDP
                 string receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
                 Message? receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
 
-                if (receivedMessage != null && receivedMessage.MsgType == MessageType.Hello)
+                if (receivedMessage != null)
                 {
                     Console.WriteLine("[SERVER] Received: " + receivedData);
 
-                    // Send Welcome Response
-                    Message welcomeMessage = new Message
+                    if (receivedMessage.MsgType == MessageType.Hello)
                     {
-                        MsgId = receivedMessage.MsgId + 1, // Increment MsgId
-                        MsgType = MessageType.Welcome,
-                        Content = "Welcome from server"
-                    };
+                        Message welcomeMessage = new Message
+                        {
+                            MsgId = receivedMessage.MsgId + 1,
+                            MsgType = MessageType.Welcome,
+                            Content = "Welcome from server"
+                        };
 
-                    byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(welcomeMessage));
-                    socket.SendTo(sendBuffer, clientEndPoint);
-                    Console.WriteLine("[SERVER] Sent: " + JsonSerializer.Serialize(welcomeMessage));
+                        byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(welcomeMessage));
+                        socket.SendTo(sendBuffer, clientEndPoint);
+                        Console.WriteLine("[SERVER] Sent: " + JsonSerializer.Serialize(welcomeMessage));
+                    }
+                    else if (receivedMessage.MsgType == MessageType.DNSLookup)
+                    {
+                        var lookupData = JsonSerializer.Deserialize<JsonElement>(receivedMessage.Content.ToString());
+                        string type = lookupData.GetProperty("Type").GetString();
+                        string name = lookupData.GetProperty("Name").GetString();
+
+                        var record = dnsRecords?.Find(r => r.Type == type && r.Name == name);
+
+                        if (record != null)
+                        {
+                            Message dnsReplyMessage = new Message
+                            {
+                                MsgId = receivedMessage.MsgId,
+                                MsgType = MessageType.DNSLookupReply,
+                                Content = record
+                            };
+
+                            byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(dnsReplyMessage));
+                            socket.SendTo(sendBuffer, clientEndPoint);
+                            Console.WriteLine("[SERVER] Sent DNSLookupReply: " + JsonSerializer.Serialize(dnsReplyMessage));
+                        }
+                        else
+                        {
+                            Message errorMessage = new Message
+                            {
+                                MsgId = receivedMessage.MsgId,
+                                MsgType = MessageType.Error,
+                                Content = "Domain not found"
+                            };
+
+                            byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(errorMessage));
+                            socket.SendTo(sendBuffer, clientEndPoint);
+                            Console.WriteLine("[SERVER] Sent Error: " + JsonSerializer.Serialize(errorMessage));
+                        }
+                    }
                 }
             }
         }

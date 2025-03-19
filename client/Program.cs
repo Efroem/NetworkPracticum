@@ -57,17 +57,48 @@ class ClientUDP
             socket.SendTo(sendBuffer, serverEndPoint);
             Console.WriteLine("[CLIENT] Sent: " + JsonSerializer.Serialize(helloMessage));
 
-            // Receive Response
+            // Receive Welcome Response
             byte[] receiveBuffer = new byte[1024];
             EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
             int receivedBytes = socket.ReceiveFrom(receiveBuffer, ref remoteEndPoint);
-
             string receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
             Message? receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
 
             if (receivedMessage != null && receivedMessage.MsgType == MessageType.Welcome)
             {
                 Console.WriteLine("[CLIENT] Received: " + receivedData);
+            }
+            else
+            {
+                Console.WriteLine("[CLIENT] Unexpected response from server: " + receivedData);
+                return;
+            }
+
+            // Step 3: Send DNS Lookup Message
+            Message dnsLookupMessage = new Message
+            {
+                MsgId = new Random().Next(1, 10000),
+                MsgType = MessageType.DNSLookup,
+                Content = new { Type = "A", Name = "www.test.com" }
+            };
+
+            byte[] dnsBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(dnsLookupMessage));
+            socket.SendTo(dnsBuffer, serverEndPoint);
+            Console.WriteLine("[CLIENT] Sent DNS Lookup: " + JsonSerializer.Serialize(dnsLookupMessage));
+
+            // Receive DNS Lookup Reply or Error
+            receiveBuffer = new byte[1024];
+            receivedBytes = socket.ReceiveFrom(receiveBuffer, ref remoteEndPoint);
+            receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
+            receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
+
+            if (receivedMessage != null && receivedMessage.MsgType == MessageType.DNSLookupReply)
+            {
+                Console.WriteLine("[CLIENT] Received DNSLookupReply: " + receivedData);
+            }
+            else if (receivedMessage != null && receivedMessage.MsgType == MessageType.Error)
+            {
+                Console.WriteLine("[CLIENT] Received Error: " + receivedData);
             }
             else
             {
