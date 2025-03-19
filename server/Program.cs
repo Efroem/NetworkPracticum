@@ -7,7 +7,6 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-
 using LibData;
 
 // ReceiveFrom();
@@ -30,53 +29,56 @@ public class Setting
 
 class ServerUDP
 {
-    static string configFile = @"../Setting.json";
+    static string configFile = "../Setting.json";
     static string configContent = File.ReadAllText(configFile);
     static Setting? setting = JsonSerializer.Deserialize<Setting>(configContent);
 
-    // TODO: [Read the JSON file and return the list of DNSRecords]
-
-
-
-
     public static void start()
     {
+        if (setting == null)
+        {
+            Console.WriteLine("Failed to load settings.");
+            return;
+        }
 
+        IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(setting.ServerIPAddress), setting.ServerPortNumber);
+        using Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
-        // TODO: [Create a socket and endpoints and bind it to the server IP address and port number]
+        try
+        {
+            socket.Bind(serverEndPoint);
+            Console.WriteLine("[SERVER] Listening on " + setting.ServerIPAddress + ":" + setting.ServerPortNumber);
 
+            while (true)
+            {
+                byte[] receiveBuffer = new byte[1024];
+                EndPoint clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                int receivedBytes = socket.ReceiveFrom(receiveBuffer, ref clientEndPoint);
 
+                string receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
+                Message? receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
 
-        // TODO:[Receive and print a received Message from the client]
+                if (receivedMessage != null && receivedMessage.MsgType == MessageType.Hello)
+                {
+                    Console.WriteLine("[SERVER] Received: " + receivedData);
 
+                    // Send Welcome Response
+                    Message welcomeMessage = new Message
+                    {
+                        MsgId = receivedMessage.MsgId + 1, // Increment MsgId
+                        MsgType = MessageType.Welcome,
+                        Content = "Welcome from server"
+                    };
 
-
-
-        // TODO:[Receive and print Hello]
-
-
-
-        // TODO:[Send Welcome to the client]
-
-
-        // TODO:[Receive and print DNSLookup]
-
-
-        // TODO:[Query the DNSRecord in Json file]
-
-        // TODO:[If found Send DNSLookupReply containing the DNSRecord]
-
-
-
-        // TODO:[If not found Send Error]
-
-
-        // TODO:[Receive Ack about correct DNSLookupReply from the client]
-
-
-        // TODO:[If no further requests receieved send End to the client]
-
+                    byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(welcomeMessage));
+                    socket.SendTo(sendBuffer, clientEndPoint);
+                    Console.WriteLine("[SERVER] Sent: " + JsonSerializer.Serialize(welcomeMessage));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[SERVER] Error: " + ex.Message);
+        }
     }
-
-
 }

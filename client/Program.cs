@@ -28,39 +28,55 @@ public class Setting
 
 class ClientUDP
 {
-
-    //TODO: [Deserialize Setting.json]
-    static string configFile = @"../Setting.json";
+    static string configFile = "../Setting.json";
     static string configContent = File.ReadAllText(configFile);
     static Setting? setting = JsonSerializer.Deserialize<Setting>(configContent);
 
-
     public static void start()
     {
+        if (setting == null)
+        {
+            Console.WriteLine("Failed to load settings.");
+            return;
+        }
 
-        //TODO: [Create endpoints and socket]
+        IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(setting.ServerIPAddress), setting.ServerPortNumber);
+        using Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
+        try
+        {
+            // Create Hello Message
+            Message helloMessage = new Message
+            {
+                MsgId = new Random().Next(1, 10000),
+                MsgType = MessageType.Hello,
+                Content = "Hello from client"
+            };
 
-        //TODO: [Create and send HELLO]
+            byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(helloMessage));
+            socket.SendTo(sendBuffer, serverEndPoint);
+            Console.WriteLine("[CLIENT] Sent: " + JsonSerializer.Serialize(helloMessage));
 
-        //TODO: [Receive and print Welcome from server]
+            // Receive Response
+            byte[] receiveBuffer = new byte[1024];
+            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+            int receivedBytes = socket.ReceiveFrom(receiveBuffer, ref remoteEndPoint);
 
-        // TODO: [Create and send DNSLookup Message]
+            string receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
+            Message? receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
 
-
-        //TODO: [Receive and print DNSLookupReply from server]
-
-
-        //TODO: [Send Acknowledgment to Server]
-
-        // TODO: [Send next DNSLookup to server]
-        // repeat the process until all DNSLoopkups (correct and incorrect onces) are sent to server and the replies with DNSLookupReply
-
-        //TODO: [Receive and print End from server]
-
-
-
-
-
+            if (receivedMessage != null && receivedMessage.MsgType == MessageType.Welcome)
+            {
+                Console.WriteLine("[CLIENT] Received: " + receivedData);
+            }
+            else
+            {
+                Console.WriteLine("[CLIENT] Unexpected response from server: " + receivedData);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[CLIENT] Error: " + ex.Message);
+        }
     }
 }
