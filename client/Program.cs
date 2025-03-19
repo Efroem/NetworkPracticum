@@ -55,45 +55,42 @@ class ClientUDP
 
                 if (serverResponse == "WELCOME")
                 {
-                    // Step 3: Send DNSLookup request (Type and Name)
-                    DNSRecordRequest dnsRequest = new DNSRecordRequest
+                    // Step 3: Send multiple DNSLookup requests
+                    List<DNSRecordRequest> dnsRequests = new List<DNSRecordRequest>
+                {
+                    new DNSRecordRequest { Type = "A", Name = "www.outlook.com" },   // ✅ Correct
+                    new DNSRecordRequest { Type = "MX", Name = "example.com" },      // ✅ Correct
+                    new DNSRecordRequest { Type = "A", Name = "www.unknown.com" },   // ❌ Incorrect
+                    new DNSRecordRequest { Type = "TXT", Name = "random.example" }   // ❌ Incorrect
+                };
+
+                    foreach (var dnsRequest in dnsRequests)
                     {
-                        Type = "A",    // Example: "A" record for IPv4 address
-                        Name = "www.outlook.com"  // Example DNS Name
-                    };
+                        string dnsRequestJson = JsonSerializer.Serialize(dnsRequest);
+                        SendMessage(udpClient, serverEndpoint, dnsRequestJson);
+                        Console.WriteLine($"Sent DNSLookup request to server: {dnsRequestJson}");
 
-                    string dnsRequestJson = JsonSerializer.Serialize(dnsRequest);
-                    byte[] dnsRequestBytes = Encoding.UTF8.GetBytes(dnsRequestJson);
-                    udpClient.Send(dnsRequestBytes, dnsRequestBytes.Length, serverEndpoint);
-                    Console.WriteLine($"Sent DNSLookup request to server: {dnsRequestJson}");
+                        // Step 4: Wait for DNSLookupReply from the server
+                        serverResponse = ReceiveMessage(udpClient, ref serverEndpoint);
+                        Console.WriteLine($"Received from server: {serverResponse}");
 
-                    // Step 4: Wait for DNSLookupReply from the server
-                    receivedBytes = udpClient.Receive(ref serverEndpoint);
-                    serverResponse = Encoding.UTF8.GetString(receivedBytes);
-                    Console.WriteLine($"Received from server: {serverResponse}");
+                        if (serverResponse.StartsWith("Error"))
+                        {
+                            Console.WriteLine("Error: DNS record not found");
+                        }
+                        else
+                        {
+                            // DNS record found, display it
+                            Console.WriteLine($"DNS Record found: {serverResponse}");
+                        }
 
-                    if (serverResponse.StartsWith("Error"))
-                    {
-                        Console.WriteLine("Error: DNS record not found");
+                        // Step 5: Send acknowledgment (ACK) to server
+                        SendMessage(udpClient, serverEndpoint, "ACK");
                     }
-                    else
-                    {
-                        // DNS record found, display it
-                        Console.WriteLine($"DNS Record found: {serverResponse}");
-                    }
-
-                    // Step 5: Send acknowledgment (ACK) to server
-                    string ackMessage = "ACK";
-                    byte[] ackBytes = Encoding.UTF8.GetBytes(ackMessage);
-                    udpClient.Send(ackBytes, ackBytes.Length, serverEndpoint);
-                    Console.WriteLine($"Sent acknowledgment to server: {ackMessage}");
 
                     // Step 6: Wait for End message and close
-                    receivedBytes = udpClient.Receive(ref serverEndpoint);
-                    serverResponse = Encoding.UTF8.GetString(receivedBytes);
+                    serverResponse = ReceiveMessage(udpClient, ref serverEndpoint);
                     Console.WriteLine($"Received from server: {serverResponse}");
-                    // test
-
                 }
             }
             catch (Exception ex)
@@ -101,5 +98,19 @@ class ClientUDP
                 Console.WriteLine($"Error: {ex.Message}");
             }
         }
+    }
+
+    // Helper function to send messages
+    private static void SendMessage(UdpClient client, IPEndPoint endpoint, string message)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(message);
+        client.Send(bytes, bytes.Length, endpoint);
+    }
+
+    // Helper function to receive messages
+    private static string ReceiveMessage(UdpClient client, ref IPEndPoint endpoint)
+    {
+        byte[] receivedBytes = client.Receive(ref endpoint);
+        return Encoding.UTF8.GetString(receivedBytes);
     }
 }
