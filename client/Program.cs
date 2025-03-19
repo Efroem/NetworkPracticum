@@ -74,48 +74,51 @@ class ClientUDP
                 return;
             }
 
-            // Step 3: Send DNS Lookup Message
-            int dnsMsgId = new Random().Next(1, 10000);
-            Message dnsLookupMessage = new Message
+            // Step 3: Send Multiple DNS Lookup Messages
+            Message[] dnsLookupMessages = new Message[]
             {
-                MsgId = dnsMsgId,
-                MsgType = MessageType.DNSLookup,
-                Content = new { Type = "A", Name = "www.test.com" }
+                new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.test.com" } },
+                new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "MX", Name = "example.com" } },
+                new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.unknown.com" } },
+                new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "CNAME", Name = "invalid.domain" } }
             };
 
-            byte[] dnsBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(dnsLookupMessage));
-            socket.SendTo(dnsBuffer, serverEndPoint);
-            Console.WriteLine("[CLIENT] Sent DNS Lookup: " + JsonSerializer.Serialize(dnsLookupMessage));
-
-            // Receive DNS Lookup Reply or Error
-            receiveBuffer = new byte[1024];
-            receivedBytes = socket.ReceiveFrom(receiveBuffer, ref remoteEndPoint);
-            receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
-            receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
-
-            if (receivedMessage != null && receivedMessage.MsgType == MessageType.DNSLookupReply)
+            foreach (var dnsLookupMessage in dnsLookupMessages)
             {
-                Console.WriteLine("[CLIENT] Received DNSLookupReply: " + receivedData);
+                byte[] dnsBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(dnsLookupMessage));
+                socket.SendTo(dnsBuffer, serverEndPoint);
+                Console.WriteLine("[CLIENT] Sent DNS Lookup: " + JsonSerializer.Serialize(dnsLookupMessage));
 
-                // Step 4: Send Acknowledgment (Ack) Message
-                Message ackMessage = new Message
+                // Receive DNS Lookup Reply or Error
+                receiveBuffer = new byte[1024];
+                receivedBytes = socket.ReceiveFrom(receiveBuffer, ref remoteEndPoint);
+                receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
+                receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
+
+                if (receivedMessage != null && receivedMessage.MsgType == MessageType.DNSLookupReply)
                 {
-                    MsgId = new Random().Next(1, 10000),
-                    MsgType = MessageType.Ack,
-                    Content = dnsMsgId  // The MsgId of the original DNSLookup request
-                };
+                    Console.WriteLine("[CLIENT] Received DNSLookupReply: " + receivedData);
 
-                byte[] ackBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ackMessage));
-                socket.SendTo(ackBuffer, serverEndPoint);
-                Console.WriteLine("[CLIENT] Sent Ack: " + JsonSerializer.Serialize(ackMessage));
-            }
-            else if (receivedMessage != null && receivedMessage.MsgType == MessageType.Error)
-            {
-                Console.WriteLine("[CLIENT] Received Error: " + receivedData);
-            }
-            else
-            {
-                Console.WriteLine("[CLIENT] Unexpected response from server: " + receivedData);
+                    // Send Acknowledgment (Ack) Message
+                    Message ackMessage = new Message
+                    {
+                        MsgId = new Random().Next(1, 10000),
+                        MsgType = MessageType.Ack,
+                        Content = dnsLookupMessage.MsgId  // The MsgId of the original DNSLookup request
+                    };
+
+                    byte[] ackBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ackMessage));
+                    socket.SendTo(ackBuffer, serverEndPoint);
+                    Console.WriteLine("[CLIENT] Sent Ack: " + JsonSerializer.Serialize(ackMessage));
+                }
+                else if (receivedMessage != null && receivedMessage.MsgType == MessageType.Error)
+                {
+                    Console.WriteLine("[CLIENT] Received Error: " + receivedData);
+                }
+                else
+                {
+                    Console.WriteLine("[CLIENT] Unexpected response from server: " + receivedData);
+                }
             }
         }
         catch (Exception ex)

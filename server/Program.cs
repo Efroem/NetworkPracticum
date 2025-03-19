@@ -34,6 +34,8 @@ class ServerUDP
     static Setting? setting = JsonSerializer.Deserialize<Setting>(configContent);
     static string dnsRecordsFile = "./DNSrecords.json";
     static List<DNSRecord>? dnsRecords;
+    static int ackCount = 0;
+    static int expectedAcks = 2; // Change this if the number of expected DNSLookups varies
 
     public static void start()
     {
@@ -126,6 +128,22 @@ class ServerUDP
                     else if (receivedMessage.MsgType == MessageType.Ack)
                     {
                         Console.WriteLine("[SERVER] Received Ack for MsgId: " + receivedMessage.Content);
+                        ackCount++;
+
+                        if (ackCount >= expectedAcks)
+                        {
+                            Message endMessage = new Message
+                            {
+                                MsgId = new Random().Next(1, 10000),
+                                MsgType = MessageType.End,
+                                Content = "End of DNS Lookup process"
+                            };
+
+                            byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(endMessage));
+                            socket.SendTo(sendBuffer, clientEndPoint);
+                            Console.WriteLine("[SERVER] Sent End Message: " + JsonSerializer.Serialize(endMessage));
+                            ackCount = 0; // Reset counter for the next session
+                        }
                     }
                 }
             }
