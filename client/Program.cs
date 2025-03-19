@@ -29,88 +29,85 @@ public class DNSRecordRequest
 
 class ClientUDP
 {
-    //TODO: [Deserialize Setting.json]
     static string configFile = @"../Setting.json";
-    static string configContent = File.ReadAllText(configFile);
-    static Setting? setting = JsonSerializer.Deserialize<Setting>(configContent);
+    static Setting? setting;
 
     public static void start()
     {
-        IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Parse(setting!.ServerIPAddress!), setting.ServerPortNumber);
-        IPEndPoint clientEndpoint = new IPEndPoint(IPAddress.Parse(setting.ClientIPAddress!), setting.ClientPortNumber);
-        using (UdpClient udpClient = new UdpClient(clientEndpoint))
+        LoadSettings();
+        UdpClient client = CreateSocket();
+        SendHello(client);
+        ReceiveWelcome(client);
+        ProcessDNSLookups(client);
+        ReceiveEnd(client);
+        client.Close();
+    }
+
+    static void LoadSettings()
+    {
+        string configContent = File.ReadAllText(configFile);
+        setting = JsonSerializer.Deserialize<Setting>(configContent);
+    }
+
+    static UdpClient CreateSocket()
+    {
+        return new UdpClient(setting.ClientPortNumber);
+    }
+
+    static void SendHello(UdpClient client)
+    {
+        Message helloMessage = new Message { MsgId = 1, MsgType = MessageType.Hello };
+        SendMessage(client, helloMessage);
+    }
+
+    static void ReceiveWelcome(UdpClient client)
+    {
+        Message welcomeMessage = ReceiveMessage(client);
+        if (welcomeMessage.MsgType == MessageType.Welcome)
         {
-            try
-            {
-                // Step 1: Send HELLO message to the server
-                string helloMessage = "HELLO";
-                byte[] helloBytes = Encoding.UTF8.GetBytes(helloMessage);
-                udpClient.Send(helloBytes, helloBytes.Length, serverEndpoint);
-                Console.WriteLine($"Sent: {helloMessage}");
-
-                // Step 2: Wait for the WELCOME message from the server
-                byte[] receivedBytes = udpClient.Receive(ref serverEndpoint);
-                string serverResponse = Encoding.UTF8.GetString(receivedBytes);
-                Console.WriteLine($"Received from server: {serverResponse}");
-
-                if (serverResponse == "WELCOME")
-                {
-                    // Step 3: Send multiple DNSLookup requests
-                    List<DNSRecordRequest> dnsRequests = new List<DNSRecordRequest>
-                {
-                    new DNSRecordRequest { Type = "A", Name = "www.outlook.com" },   // ✅ Correct
-                    new DNSRecordRequest { Type = "MX", Name = "example.com" },      // ✅ Correct
-                    new DNSRecordRequest { Type = "A", Name = "www.unknown.com" },   // ❌ Incorrect
-                    new DNSRecordRequest { Type = "TXT", Name = "random.example" }   // ❌ Incorrect
-                };
-
-                    foreach (var dnsRequest in dnsRequests)
-                    {
-                        string dnsRequestJson = JsonSerializer.Serialize(dnsRequest);
-                        SendMessage(udpClient, serverEndpoint, dnsRequestJson);
-                        Console.WriteLine($"Sent DNSLookup request to server: {dnsRequestJson}");
-
-                        // Step 4: Wait for DNSLookupReply from the server
-                        serverResponse = ReceiveMessage(udpClient, ref serverEndpoint);
-                        Console.WriteLine($"Received from server: {serverResponse}");
-
-                        if (serverResponse.StartsWith("Error"))
-                        {
-                            Console.WriteLine("Error: DNS record not found");
-                        }
-                        else
-                        {
-                            // DNS record found, display it
-                            Console.WriteLine($"DNS Record found: {serverResponse}");
-                        }
-
-                        // Step 5: Send acknowledgment (ACK) to server
-                        SendMessage(udpClient, serverEndpoint, "ACK");
-                    }
-
-                    // Step 6: Wait for End message and close
-                    serverResponse = ReceiveMessage(udpClient, ref serverEndpoint);
-                    Console.WriteLine($"Received from server: {serverResponse}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-            }
+            Console.WriteLine("Received Welcome from Server.");
         }
     }
 
-    // Helper function to send messages
-    private static void SendMessage(UdpClient client, IPEndPoint endpoint, string message)
+    static void ProcessDNSLookups(UdpClient client)
     {
-        byte[] bytes = Encoding.UTF8.GetBytes(message);
-        client.Send(bytes, bytes.Length, endpoint);
+        string[] domains = { "www.test.com", "www.unknown.com" };
+        foreach (var domain in domains)
+        {
+            SendMessage(client, new Message { MsgId = 2, MsgType = MessageType.DNSLookup, Content = domain });
+            Message response = ReceiveMessage(client);
+            Console.WriteLine($"Received: {response.MsgType} for {domain}");
+        }
     }
 
-    // Helper function to receive messages
-    private static string ReceiveMessage(UdpClient client, ref IPEndPoint endpoint)
+    static void ReceiveEnd(UdpClient client)
     {
-        byte[] receivedBytes = client.Receive(ref endpoint);
-        return Encoding.UTF8.GetString(receivedBytes);
+        Message endMessage = ReceiveMessage(client);
+        if (endMessage.MsgType == MessageType.End)
+        {
+            Console.WriteLine("Communication Ended.");
+        }
     }
+
+    static void SendMessage(UdpClient client, Message message)
+    {
+        byte[] data = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
+        client.Send(data, data.Length, new IPEndPoint(IPAddress.Parse(setting.ServerIPAddress), setting.ServerPortNumber));
+    }
+
+    static Message ReceiveMessage(UdpClient client)
+    {
+        try
+        {
+            IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+            byte[] data = client.Receive(ref remoteEP);
+            return JsonSerializer.Deserialize<Message>(Encoding.UTF8.GetString(data));
+        }
+        catch (SocketException ex)
+        {
+            Console.WriteLine($"[ERROR] Connection lost: {ex.Message}");
+            return new Message { MsgType = MessageType.Error, Content = "Connection lost" };
+        }
+    }
+
 }
