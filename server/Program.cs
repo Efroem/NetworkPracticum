@@ -9,7 +9,7 @@ using System.Text;
 using System.Text.Json;
 using LibData;
 
-// ReceiveFrom();
+
 class Program
 {
     static void Main(string[] args)
@@ -35,7 +35,7 @@ class ServerUDP
     static string dnsRecordsFile = "./DNSrecords.json";
     static List<DNSRecord>? dnsRecords;
     static int ackCount = 0;
-    static int expectedAcks = 2; // Change this if the number of expected DNSLookups varies
+    static int expectedAcks = 2;
 
     public static void start()
     {
@@ -64,7 +64,7 @@ class ServerUDP
             socket.Bind(serverEndPoint);
             Console.WriteLine("[SERVER] Listening on " + setting.ServerIPAddress + ":" + setting.ServerPortNumber);
 
-            while (true) // Keep the server running indefinitely
+            while (true)
             {
                 try
                 {
@@ -132,10 +132,8 @@ class ServerUDP
                             Console.WriteLine("[SERVER] Received Ack for MsgId: " + receivedMessage.Content);
                             ackCount++;
 
-                            // Only send the End Message if all necessary messages have been acknowledged
                             if (ackCount >= expectedAcks)
                             {
-                                // Ensure that End message is the last thing sent
                                 Message endMessage = new Message
                                 {
                                     MsgId = new Random().Next(1, 10000),
@@ -147,33 +145,28 @@ class ServerUDP
                                 socket.SendTo(sendBuffer, clientEndPoint);
                                 Console.WriteLine("[SERVER] Sent End Message: " + JsonSerializer.Serialize(endMessage));
 
-                                ackCount = 0; // Reset counter for the next session
+                                ackCount = 0;
                             }
                         }
                     }
                 }
                 catch (SocketException ex)
                 {
-                    // Handle expected SocketException (e.g., client disconnects)
                     if (ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.NetworkDown)
                     {
-                        // Log the client disconnect error and continue
                         Console.WriteLine("[SERVER] Client disconnected or connection reset. Continuing...");
                         continue;
                     }
-                    // Handle other exceptions, log them, and continue
                     Console.WriteLine("[SERVER] Socket error: " + ex.Message);
                 }
                 catch (Exception ex)
                 {
-                    // Catch any other unexpected errors in the loop
                     Console.WriteLine("[SERVER] Error in receiving or processing message: " + ex.Message);
                 }
             }
         }
         catch (Exception ex)
         {
-            // Catch any exceptions in socket binding to prevent server shutdown
             Console.WriteLine("[SERVER] Error: " + ex.Message);
         }
     }

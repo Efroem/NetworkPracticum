@@ -9,7 +9,6 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using LibData;
 
-// SendTo();
 class Program
 {
     static void Main(string[] args)
@@ -45,7 +44,6 @@ class ClientUDP
 
         try
         {
-            // Create Hello Message
             Message helloMessage = new Message
             {
                 MsgId = new Random().Next(1, 10000),
@@ -57,7 +55,6 @@ class ClientUDP
             socket.SendTo(sendBuffer, serverEndPoint);
             Console.WriteLine("[CLIENT] Sent: " + JsonSerializer.Serialize(helloMessage));
 
-            // Receive Welcome Response
             byte[] receiveBuffer = new byte[1024];
             EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
             int receivedBytes = socket.ReceiveFrom(receiveBuffer, ref remoteEndPoint);
@@ -74,7 +71,6 @@ class ClientUDP
                 return;
             }
 
-            // Step 3: Send Multiple DNS Lookup Messages
             Message[] dnsLookupMessages = new Message[]
             {
                 new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.test.com" } },
@@ -85,14 +81,12 @@ class ClientUDP
                 // new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.mywebsite.com" } }
             };
 
-            // Loop to send DNS lookup messages and receive replies
             foreach (var dnsLookupMessage in dnsLookupMessages)
             {
                 byte[] dnsBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(dnsLookupMessage));
                 socket.SendTo(dnsBuffer, serverEndPoint);
                 Console.WriteLine("[CLIENT] Sent DNS Lookup: " + JsonSerializer.Serialize(dnsLookupMessage));
 
-                // Receive DNS Lookup Reply or Error
                 receiveBuffer = new byte[1024];
                 receivedBytes = socket.ReceiveFrom(receiveBuffer, ref remoteEndPoint);
                 receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
@@ -102,12 +96,11 @@ class ClientUDP
                 {
                     Console.WriteLine("[CLIENT] Received DNSLookupReply: " + receivedData);
 
-                    // Send Acknowledgment (Ack) Message
                     Message ackMessage = new Message
                     {
                         MsgId = new Random().Next(1, 10000),
                         MsgType = MessageType.Ack,
-                        Content = dnsLookupMessage.MsgId  // The MsgId of the original DNSLookup request
+                        Content = dnsLookupMessage.MsgId
                     };
 
                     byte[] ackBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ackMessage));
@@ -124,10 +117,8 @@ class ClientUDP
                 }
             }
 
-            // Continuous listening for messages from the server
             while (true)
             {
-                // Receive messages from the server
                 receiveBuffer = new byte[1024];
                 receivedBytes = socket.ReceiveFrom(receiveBuffer, ref remoteEndPoint);
                 receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
@@ -139,7 +130,7 @@ class ClientUDP
                     {
                         case MessageType.End:
                             Console.WriteLine("[CLIENT] Received END message. Terminating client.");
-                            return; // Exit the loop and terminate the client
+                            return;
                         default:
                             Console.WriteLine("[CLIENT] Received: " + receivedData);
                             break;
