@@ -11,7 +11,6 @@ using System.Text.Json;
 
 using LibData;
 
-// ReceiveFrom();
 class Program
 {
     static void Main(string[] args)
@@ -37,7 +36,6 @@ public class DNSRecord
     public int TTL { get; set; }
 }
 
-
 class ServerUDP
 {
     static string configFile = @"../Setting.json";
@@ -45,7 +43,6 @@ class ServerUDP
     static string configContent = File.ReadAllText(configFile);
     static Setting? setting = JsonSerializer.Deserialize<Setting>(configContent);
 
-    // TODO: [Read the JSON file and return the list of DNSRecords]
     public static List<DNSRecord> LoadDNSRecords()
     {
         if (File.Exists(dnsFile))
@@ -59,8 +56,6 @@ class ServerUDP
             return new List<DNSRecord>();
         }
     }
-
-
 
     public static void start()
     {
@@ -80,7 +75,6 @@ class ServerUDP
 
         DNSRecordPrint();
 
-        // Create a socket and endpoints and bind it to the server IP address and port number
         IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Parse(setting!.ServerIPAddress!), setting.ServerPortNumber);
         using (UdpClient udpServer = new UdpClient(serverEndpoint))
         {
@@ -88,19 +82,69 @@ class ServerUDP
 
             try
             {
-                // Receive and print Hello
                 IPEndPoint clientEndpoint = new IPEndPoint(IPAddress.Any, 0);
+
+                // Receive the "HELLO" message from the client
                 byte[] receivedBytes = udpServer.Receive(ref clientEndpoint);
                 string receivedMessage = Encoding.UTF8.GetString(receivedBytes);
                 Console.WriteLine($"Received from client: {receivedMessage}");
 
                 if (receivedMessage == "HELLO")
                 {
-                    // Send Welcome to the client
+                    // Send "WELCOME" to the client
                     string welcomeMessage = "WELCOME";
                     byte[] welcomeBytes = Encoding.UTF8.GetBytes(welcomeMessage);
                     udpServer.Send(welcomeBytes, welcomeBytes.Length, clientEndpoint);
                     Console.WriteLine($"Sent to client: {welcomeMessage}");
+                }
+
+                // Receive the DNSLookup request
+                receivedBytes = udpServer.Receive(ref clientEndpoint);
+                string dnsLookupMessage = Encoding.UTF8.GetString(receivedBytes);
+                Console.WriteLine($"Received DNSLookup from client: {dnsLookupMessage}");
+
+                // Deserialize the DNSLookup message (assuming it's JSON)
+                var dnsRequest = JsonSerializer.Deserialize<DNSRecord>(dnsLookupMessage);
+                if (dnsRequest != null)
+                {
+                    // Query the DNSRecord in the JSON file
+                    List<DNSRecord> dnsRecords = LoadDNSRecords();
+                    DNSRecord? foundRecord = dnsRecords.Find(record => record.Name == dnsRequest.Name && record.Type == dnsRequest.Type);
+
+                    if (foundRecord != null)
+                    {
+                        // Send the DNSLookupReply with the DNSRecord
+                        string replyMessage = JsonSerializer.Serialize(foundRecord);
+                        byte[] replyBytes = Encoding.UTF8.GetBytes(replyMessage);
+                        udpServer.Send(replyBytes, replyBytes.Length, clientEndpoint);
+                        Console.WriteLine($"Sent DNSLookupReply to client: {replyMessage}");
+                    }
+                    else
+                    {
+                        // Send an error message if DNS record not found
+                        string errorMessage = "Error: DNS record not found";
+                        byte[] errorBytes = Encoding.UTF8.GetBytes(errorMessage);
+                        udpServer.Send(errorBytes, errorBytes.Length, clientEndpoint);
+                        Console.WriteLine($"Sent error to client: {errorMessage}");
+                    }
+
+                    // Receive acknowledgment of correct DNSLookupReply
+                    receivedBytes = udpServer.Receive(ref clientEndpoint);
+                    string ackMessage = Encoding.UTF8.GetString(receivedBytes);
+                    Console.WriteLine($"Received acknowledgment from client: {ackMessage}");
+
+                    if (ackMessage == "ACK")
+                    {
+                        // Send "End" if no further requests are received
+                        string endMessage = "End";
+                        byte[] endBytes = Encoding.UTF8.GetBytes(endMessage);
+                        udpServer.Send(endBytes, endBytes.Length, clientEndpoint);
+                        Console.WriteLine($"Sent to client: {endMessage}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Error: Invalid DNSLookup request");
                 }
             }
             catch (Exception ex)
@@ -108,42 +152,5 @@ class ServerUDP
                 Console.WriteLine($"Error: {ex.Message}");
             }
         }
-
-
-        // TODO: [Create a socket and endpoints and bind it to the server IP address and port number]
-
-
-
-        // TODO:[Receive and print a received Message from the client]
-
-
-
-
-        // TODO:[Receive and print Hello]
-
-
-
-        // TODO:[Send Welcome to the client]
-
-
-        // TODO:[Receive and print DNSLookup]
-
-
-        // TODO:[Query the DNSRecord in Json file]
-
-        // TODO:[If found Send DNSLookupReply containing the DNSRecord]
-
-
-
-        // TODO:[If not found Send Error]
-
-
-        // TODO:[Receive Ack about correct DNSLookupReply from the client]
-
-
-        // TODO:[If no further requests receieved send End to the client]
-
     }
-
-
 }
