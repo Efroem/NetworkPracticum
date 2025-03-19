@@ -132,8 +132,10 @@ class ServerUDP
                             Console.WriteLine("[SERVER] Received Ack for MsgId: " + receivedMessage.Content);
                             ackCount++;
 
+                            // Only send the End Message if all necessary messages have been acknowledged
                             if (ackCount >= expectedAcks)
                             {
+                                // Ensure that End message is the last thing sent
                                 Message endMessage = new Message
                                 {
                                     MsgId = new Random().Next(1, 10000),
@@ -144,6 +146,7 @@ class ServerUDP
                                 byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(endMessage));
                                 socket.SendTo(sendBuffer, clientEndPoint);
                                 Console.WriteLine("[SERVER] Sent End Message: " + JsonSerializer.Serialize(endMessage));
+
                                 ackCount = 0; // Reset counter for the next session
                             }
                         }
@@ -174,5 +177,4 @@ class ServerUDP
             Console.WriteLine("[SERVER] Error: " + ex.Message);
         }
     }
-
 }

@@ -78,11 +78,14 @@ class ClientUDP
             Message[] dnsLookupMessages = new Message[]
             {
                 new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.test.com" } },
-                new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "MX", Name = "example.com" } },
                 new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.unknown.com" } },
-                new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "CNAME", Name = "invalid.domain" } }
+                new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "CNAME", Name = "invalid.domain" } },
+                new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "MX", Name = "example.com" } },
+                // new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.mywebsite.com" } },
+                // new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.mywebsite.com" } }
             };
 
+            // Loop to send DNS lookup messages and receive replies
             foreach (var dnsLookupMessage in dnsLookupMessages)
             {
                 byte[] dnsBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(dnsLookupMessage));
@@ -118,6 +121,33 @@ class ClientUDP
                 else
                 {
                     Console.WriteLine("[CLIENT] Unexpected response from server: " + receivedData);
+                }
+            }
+
+            // Continuous listening for messages from the server
+            while (true)
+            {
+                // Receive messages from the server
+                receiveBuffer = new byte[1024];
+                receivedBytes = socket.ReceiveFrom(receiveBuffer, ref remoteEndPoint);
+                receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
+                receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
+
+                if (receivedMessage != null)
+                {
+                    switch (receivedMessage.MsgType)
+                    {
+                        case MessageType.End:
+                            Console.WriteLine("[CLIENT] Received END message. Terminating client.");
+                            return; // Exit the loop and terminate the client
+                        default:
+                            Console.WriteLine("[CLIENT] Received: " + receivedData);
+                            break;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("[CLIENT] Received unexpected data: " + receivedData);
                 }
             }
         }
