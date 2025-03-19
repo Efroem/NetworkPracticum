@@ -64,93 +64,115 @@ class ServerUDP
             socket.Bind(serverEndPoint);
             Console.WriteLine("[SERVER] Listening on " + setting.ServerIPAddress + ":" + setting.ServerPortNumber);
 
-            while (true)
+            while (true) // Keep the server running indefinitely
             {
-                byte[] receiveBuffer = new byte[1024];
-                EndPoint clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
-                int receivedBytes = socket.ReceiveFrom(receiveBuffer, ref clientEndPoint);
-
-                string receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
-                Message? receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
-
-                if (receivedMessage != null)
+                try
                 {
-                    Console.WriteLine("[SERVER] Received: " + receivedData);
+                    byte[] receiveBuffer = new byte[1024];
+                    EndPoint clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                    int receivedBytes = socket.ReceiveFrom(receiveBuffer, ref clientEndPoint);
 
-                    if (receivedMessage.MsgType == MessageType.Hello)
+                    string receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
+                    Message? receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
+
+                    if (receivedMessage != null)
                     {
-                        Message welcomeMessage = new Message
+                        Console.WriteLine("[SERVER] Received: " + receivedData);
+
+                        if (receivedMessage.MsgType == MessageType.Hello)
                         {
-                            MsgId = receivedMessage.MsgId + 1,
-                            MsgType = MessageType.Welcome,
-                            Content = "Welcome from server"
-                        };
-
-                        byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(welcomeMessage));
-                        socket.SendTo(sendBuffer, clientEndPoint);
-                        Console.WriteLine("[SERVER] Sent: " + JsonSerializer.Serialize(welcomeMessage));
-                    }
-                    else if (receivedMessage.MsgType == MessageType.DNSLookup)
-                    {
-                        var lookupData = JsonSerializer.Deserialize<JsonElement>(receivedMessage.Content.ToString());
-                        string type = lookupData.GetProperty("Type").GetString();
-                        string name = lookupData.GetProperty("Name").GetString();
-
-                        var record = dnsRecords?.Find(r => r.Type == type && r.Name == name);
-
-                        if (record != null)
-                        {
-                            Message dnsReplyMessage = new Message
+                            Message welcomeMessage = new Message
                             {
-                                MsgId = receivedMessage.MsgId,
-                                MsgType = MessageType.DNSLookupReply,
-                                Content = record
+                                MsgId = receivedMessage.MsgId + 1,
+                                MsgType = MessageType.Welcome,
+                                Content = "Welcome from server"
                             };
 
-                            byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(dnsReplyMessage));
+                            byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(welcomeMessage));
                             socket.SendTo(sendBuffer, clientEndPoint);
-                            Console.WriteLine("[SERVER] Sent DNSLookupReply: " + JsonSerializer.Serialize(dnsReplyMessage));
+                            Console.WriteLine("[SERVER] Sent: " + JsonSerializer.Serialize(welcomeMessage));
                         }
-                        else
+                        else if (receivedMessage.MsgType == MessageType.DNSLookup)
                         {
-                            Message errorMessage = new Message
-                            {
-                                MsgId = receivedMessage.MsgId,
-                                MsgType = MessageType.Error,
-                                Content = "Domain not found"
-                            };
+                            var lookupData = JsonSerializer.Deserialize<JsonElement>(receivedMessage.Content.ToString());
+                            string type = lookupData.GetProperty("Type").GetString();
+                            string name = lookupData.GetProperty("Name").GetString();
 
-                            byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(errorMessage));
-                            socket.SendTo(sendBuffer, clientEndPoint);
-                            Console.WriteLine("[SERVER] Sent Error: " + JsonSerializer.Serialize(errorMessage));
+                            var record = dnsRecords?.Find(r => r.Type == type && r.Name == name);
+
+                            if (record != null)
+                            {
+                                Message dnsReplyMessage = new Message
+                                {
+                                    MsgId = receivedMessage.MsgId,
+                                    MsgType = MessageType.DNSLookupReply,
+                                    Content = record
+                                };
+
+                                byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(dnsReplyMessage));
+                                socket.SendTo(sendBuffer, clientEndPoint);
+                                Console.WriteLine("[SERVER] Sent DNSLookupReply: " + JsonSerializer.Serialize(dnsReplyMessage));
+                            }
+                            else
+                            {
+                                Message errorMessage = new Message
+                                {
+                                    MsgId = receivedMessage.MsgId,
+                                    MsgType = MessageType.Error,
+                                    Content = "Domain not found"
+                                };
+
+                                byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(errorMessage));
+                                socket.SendTo(sendBuffer, clientEndPoint);
+                                Console.WriteLine("[SERVER] Sent Error: " + JsonSerializer.Serialize(errorMessage));
+                            }
+                        }
+                        else if (receivedMessage.MsgType == MessageType.Ack)
+                        {
+                            Console.WriteLine("[SERVER] Received Ack for MsgId: " + receivedMessage.Content);
+                            ackCount++;
+
+                            if (ackCount >= expectedAcks)
+                            {
+                                Message endMessage = new Message
+                                {
+                                    MsgId = new Random().Next(1, 10000),
+                                    MsgType = MessageType.End,
+                                    Content = "End of DNS Lookup process"
+                                };
+
+                                byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(endMessage));
+                                socket.SendTo(sendBuffer, clientEndPoint);
+                                Console.WriteLine("[SERVER] Sent End Message: " + JsonSerializer.Serialize(endMessage));
+                                ackCount = 0; // Reset counter for the next session
+                            }
                         }
                     }
-                    else if (receivedMessage.MsgType == MessageType.Ack)
+                }
+                catch (SocketException ex)
+                {
+                    // Handle expected SocketException (e.g., client disconnects)
+                    if (ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.NetworkDown)
                     {
-                        Console.WriteLine("[SERVER] Received Ack for MsgId: " + receivedMessage.Content);
-                        ackCount++;
-
-                        if (ackCount >= expectedAcks)
-                        {
-                            Message endMessage = new Message
-                            {
-                                MsgId = new Random().Next(1, 10000),
-                                MsgType = MessageType.End,
-                                Content = "End of DNS Lookup process"
-                            };
-
-                            byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(endMessage));
-                            socket.SendTo(sendBuffer, clientEndPoint);
-                            Console.WriteLine("[SERVER] Sent End Message: " + JsonSerializer.Serialize(endMessage));
-                            ackCount = 0; // Reset counter for the next session
-                        }
+                        // Log the client disconnect error and continue
+                        Console.WriteLine("[SERVER] Client disconnected or connection reset. Continuing...");
+                        continue;
                     }
+                    // Handle other exceptions, log them, and continue
+                    Console.WriteLine("[SERVER] Socket error: " + ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    // Catch any other unexpected errors in the loop
+                    Console.WriteLine("[SERVER] Error in receiving or processing message: " + ex.Message);
                 }
             }
         }
         catch (Exception ex)
         {
+            // Catch any exceptions in socket binding to prevent server shutdown
             Console.WriteLine("[SERVER] Error: " + ex.Message);
         }
     }
+
 }
