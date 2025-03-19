@@ -95,8 +95,8 @@ class ServerUDP
                         else if (receivedMessage.MsgType == MessageType.DNSLookup)
                         {
                             var lookupData = JsonSerializer.Deserialize<JsonElement>(receivedMessage.Content.ToString());
-                            string type = lookupData.GetProperty("Type").GetString();
-                            string name = lookupData.GetProperty("Name").GetString();
+                            string? type = lookupData.GetProperty("Type").GetString();
+                            string? name = lookupData.GetProperty("Name").GetString();
 
                             var record = dnsRecords?.Find(r => r.Type == type && r.Name == name);
 

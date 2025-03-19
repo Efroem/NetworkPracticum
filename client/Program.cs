@@ -39,6 +39,11 @@ class ClientUDP
             return;
         }
 
+        if (string.IsNullOrEmpty(setting.ServerIPAddress))
+        {
+            Console.WriteLine("Server IP Address is not configured.");
+            return;
+        }
         IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(setting.ServerIPAddress), setting.ServerPortNumber);
         using Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
