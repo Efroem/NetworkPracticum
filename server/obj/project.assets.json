@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\ejhoe\\Documents\\Hogeschool Rotterdam\\Semester 4\\Networking\\Practicum\\AssignmentTemplateStudent\\server\\server.csproj",
+      "projectUniqueName": "c:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\server.csproj",
       "projectName": "server",
-      "projectPath": "C:\\Users\\ejhoe\\Documents\\Hogeschool Rotterdam\\Semester 4\\Networking\\Practicum\\AssignmentTemplateStudent\\server\\server.csproj",
+      "projectPath": "c:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\server.csproj",
       "packagesPath": "C:\\Users\\ejhoe\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\ejhoe\\Documents\\Hogeschool Rotterdam\\Semester 4\\Networking\\Practicum\\AssignmentTemplateStudent\\server\\obj\\",
+      "outputPath": "c:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\ejhoe\\AppData\\Roaming\\NuGet\\NuGet.Config"

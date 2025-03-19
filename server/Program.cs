@@ -58,17 +58,14 @@ class ServerUDP
             Console.WriteLine($"Error: {dnsFile} not found!");
             return new List<DNSRecord>();
         }
-
     }
 
 
 
     public static void start()
     {
-        // DNS Record printing
         static void DNSRecordPrint()
         {
-
             List<DNSRecord> dnsRecords = ServerUDP.LoadDNSRecords();
             if (dnsRecords.Count == 0)
             {
@@ -82,6 +79,35 @@ class ServerUDP
         }
 
         DNSRecordPrint();
+
+        // Create a socket and endpoints and bind it to the server IP address and port number
+        IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Parse(setting!.ServerIPAddress!), setting.ServerPortNumber);
+        using (UdpClient udpServer = new UdpClient(serverEndpoint))
+        {
+            Console.WriteLine($"Server is listening on {serverEndpoint}");
+
+            try
+            {
+                // Receive and print Hello
+                IPEndPoint clientEndpoint = new IPEndPoint(IPAddress.Any, 0);
+                byte[] receivedBytes = udpServer.Receive(ref clientEndpoint);
+                string receivedMessage = Encoding.UTF8.GetString(receivedBytes);
+                Console.WriteLine($"Received from client: {receivedMessage}");
+
+                if (receivedMessage == "HELLO")
+                {
+                    // Send Welcome to the client
+                    string welcomeMessage = "WELCOME";
+                    byte[] welcomeBytes = Encoding.UTF8.GetBytes(welcomeMessage);
+                    udpServer.Send(welcomeBytes, welcomeBytes.Length, clientEndpoint);
+                    Console.WriteLine($"Sent to client: {welcomeMessage}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
 
 
         // TODO: [Create a socket and endpoints and bind it to the server IP address and port number]

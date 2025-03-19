@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\ejhoe\\Documents\\Hogeschool Rotterdam\\Semester 4\\Networking\\Practicum\\AssignmentTemplateStudent\\client\\client.csproj": {}
+    "C:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\client\\client.csproj": {}
   },
   "projects": {
-    "C:\\Users\\ejhoe\\Documents\\Hogeschool Rotterdam\\Semester 4\\Networking\\Practicum\\AssignmentTemplateStudent\\client\\client.csproj": {
+    "C:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\client\\client.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\ejhoe\\Documents\\Hogeschool Rotterdam\\Semester 4\\Networking\\Practicum\\AssignmentTemplateStudent\\client\\client.csproj",
+        "projectUniqueName": "C:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\client\\client.csproj",
         "projectName": "client",
-        "projectPath": "C:\\Users\\ejhoe\\Documents\\Hogeschool Rotterdam\\Semester 4\\Networking\\Practicum\\AssignmentTemplateStudent\\client\\client.csproj",
+        "projectPath": "C:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\client\\client.csproj",
         "packagesPath": "C:\\Users\\ejhoe\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\ejhoe\\Documents\\Hogeschool Rotterdam\\Semester 4\\Networking\\Practicum\\AssignmentTemplateStudent\\client\\obj\\",
+        "outputPath": "C:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\client\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\ejhoe\\AppData\\Roaming\\NuGet\\NuGet.Config"

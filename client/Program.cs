@@ -37,6 +37,22 @@ class ClientUDP
 
     public static void start()
     {
+        IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Parse(setting!.ServerIPAddress!), setting.ServerPortNumber);
+        IPEndPoint clientEndpoint = new IPEndPoint(IPAddress.Parse(setting.ClientIPAddress!), setting.ClientPortNumber);
+        using (UdpClient udpClient = new UdpClient(clientEndpoint))
+        {
+            try
+            {
+                string helloMessage = "HELLO";
+                byte[] helloBytes = Encoding.UTF8.GetBytes(helloMessage);
+                udpClient.Send(helloBytes, helloBytes.Length, serverEndpoint);
+                Console.WriteLine($"Sent: {helloMessage}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
 
         //TODO: [Create endpoints and socket]
 

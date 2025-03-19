@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "j9oXN13biA4=",
+  "dgSpecHash": "L7StDcD8c20=",
   "success": true,
-  "projectFilePath": "C:\\Users\\ejhoe\\Documents\\Hogeschool Rotterdam\\Semester 4\\Networking\\Practicum\\AssignmentTemplateStudent\\server\\server.csproj",
+  "projectFilePath": "C:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\server.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\ejhoe\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.14\\microsoft.netcore.app.ref.8.0.14.nupkg.sha512",
     "C:\\Users\\ejhoe\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.14\\microsoft.windowsdesktop.app.ref.8.0.14.nupkg.sha512",
