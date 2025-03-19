@@ -75,9 +75,10 @@ class ClientUDP
             }
 
             // Step 3: Send DNS Lookup Message
+            int dnsMsgId = new Random().Next(1, 10000);
             Message dnsLookupMessage = new Message
             {
-                MsgId = new Random().Next(1, 10000),
+                MsgId = dnsMsgId,
                 MsgType = MessageType.DNSLookup,
                 Content = new { Type = "A", Name = "www.test.com" }
             };
@@ -95,6 +96,18 @@ class ClientUDP
             if (receivedMessage != null && receivedMessage.MsgType == MessageType.DNSLookupReply)
             {
                 Console.WriteLine("[CLIENT] Received DNSLookupReply: " + receivedData);
+
+                // Step 4: Send Acknowledgment (Ack) Message
+                Message ackMessage = new Message
+                {
+                    MsgId = new Random().Next(1, 10000),
+                    MsgType = MessageType.Ack,
+                    Content = dnsMsgId  // The MsgId of the original DNSLookup request
+                };
+
+                byte[] ackBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ackMessage));
+                socket.SendTo(ackBuffer, serverEndPoint);
+                Console.WriteLine("[CLIENT] Sent Ack: " + JsonSerializer.Serialize(ackMessage));
             }
             else if (receivedMessage != null && receivedMessage.MsgType == MessageType.Error)
             {

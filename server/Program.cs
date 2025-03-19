@@ -123,6 +123,10 @@ class ServerUDP
                             Console.WriteLine("[SERVER] Sent Error: " + JsonSerializer.Serialize(errorMessage));
                         }
                     }
+                    else if (receivedMessage.MsgType == MessageType.Ack)
+                    {
+                        Console.WriteLine("[SERVER] Received Ack for MsgId: " + receivedMessage.Content);
+                    }
                 }
             }
         }
