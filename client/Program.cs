@@ -27,7 +27,7 @@ public class Setting
 
 class ClientUDP
 {
-    static string configFile = "../Setting.json";
+    static string configFile = @"../Setting.json";
     static Setting? setting;
 
     public static void start()

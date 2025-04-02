@@ -29,8 +29,8 @@ public class Setting
 
 class ServerUDP
 {
-    static string configFile = "../Setting.json";
-    static string dnsRecordsFile = "./DNSrecords.json";
+    static string configFile = @"../Setting.json";
+    static string dnsRecordsFile = @"./DNSrecords.json";
 
     static Setting? setting;
     static List<DNSRecord>? dnsRecords;
