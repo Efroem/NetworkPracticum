@@ -110,13 +110,13 @@ class ClientUDP
 
     private static void SendDNSLookups(Socket socket, IPEndPoint serverEndPoint)
     {
-        Message[] dnsLookupMessages = new Message[]
-        {
+        Message[] dnsLookupMessages =
+        [
             new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.test.com" } }, //correct
             new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "MX", Name = "example.com" } }, //correct
             new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "A", Name = "www.unknown.com" } }, //incorrect
             new Message { MsgId = new Random().Next(1, 10000), MsgType = MessageType.DNSLookup, Content = new { Type = "CNAME", Name = "invalid.domain" } } //incorrect
-        };
+        ];
 
         foreach (var message in dnsLookupMessages)
         {
@@ -150,45 +150,32 @@ class ClientUDP
 
     private static void WaitForEndOrSendFallback(Socket socket, IPEndPoint serverEndPoint)
     {
-        EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
-        byte[] buffer = new byte[1024];
         socket.ReceiveTimeout = 5000;
 
         try
         {
-            int receivedBytes = socket.ReceiveFrom(buffer, ref remoteEndPoint);
-            string receivedData = Encoding.UTF8.GetString(buffer, 0, receivedBytes);
-            Message? message = JsonSerializer.Deserialize<Message>(receivedData);
-
-            if (message != null && message.MsgType == MessageType.End)
-            {
-                Console.WriteLine("[CLIENT] Received END message from server. Terminating client.");
-            }
-            else
-            {
-                Console.WriteLine("[CLIENT] Received unexpected message while waiting for END: " + receivedData);
-            }
+            byte[] buffer = new byte[1024];
+            EndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
+            socket.ReceiveFrom(buffer, ref remoteEndPoint);
         }
         catch (SocketException ex)
         {
-            if (ex.SocketErrorCode == SocketError.TimedOut)
+            if (ex.SocketErrorCode != SocketError.TimedOut)
             {
-                Console.WriteLine("[CLIENT] Timeout: No END message received. Sending END manually.");
-
-                Message endMessage = new Message
-                {
-                    MsgId = new Random().Next(1, 10000),
-                    MsgType = MessageType.End,
-                    Content = "Client manually ended session"
-                };
-
-                SendMessage(socket, endMessage, serverEndPoint, "[CLIENT] Sent End");
-            }
-            else
-            {
-                Console.WriteLine("[CLIENT] Socket error while waiting for END: " + ex.Message);
+                Console.WriteLine("[CLIENT] Socket error during timeout: " + ex.Message);
             }
         }
+
+        Console.WriteLine("[CLIENT] Timeout reached. Sending End");
+
+        Message endMessage = new Message
+        {
+            MsgId = new Random().Next(1, 10000),
+            MsgType = MessageType.End,
+            Content = "Client manually ended session"
+        };
+
+        SendMessage(socket, endMessage, serverEndPoint, "[CLIENT] Sent End");
     }
 
 

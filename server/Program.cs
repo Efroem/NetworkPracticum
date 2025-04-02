@@ -136,7 +136,7 @@ class ServerUDP
                 ProcessDNSLookup(socket, receivedMessage, clientEndPoint);
                 break;
             case MessageType.Ack:
-                HandleAck(socket, receivedMessage, clientEndPoint);
+                HandleAck(receivedMessage);
                 break;
         }
     }
@@ -184,7 +184,7 @@ class ServerUDP
         }
     }
 
-    private static void HandleAck(Socket socket, Message ackMessage, EndPoint clientEndPoint)
+    private static void HandleAck(Message ackMessage)
     {
         Console.WriteLine("[SERVER] Received Ack for MsgId: " + ackMessage.Content);
     }
