@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\server.csproj",
+      "projectUniqueName": "C:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\server.csproj",
       "projectName": "server",
-      "projectPath": "c:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\server.csproj",
+      "projectPath": "C:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\server.csproj",
       "packagesPath": "C:\\Users\\ejhoe\\.nuget\\packages\\",
-      "outputPath": "c:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\obj\\",
+      "outputPath": "C:\\Users\\ejhoe\\Documents\\GitHub\\NetworkPracticum\\server\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\ejhoe\\AppData\\Roaming\\NuGet\\NuGet.Config"

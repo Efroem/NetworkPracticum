@@ -5,11 +5,10 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
-
 using LibData;
+
 
 class Program
 {
@@ -27,145 +26,148 @@ public class Setting
     public string? ClientIPAddress { get; set; }
 }
 
-public class DNSRecord
-{
-    public string Type { get; set; }
-    public string Name { get; set; }
-    public string Value { get; set; }
-    public int? Priority { get; set; }
-    public int TTL { get; set; }
-}
 
 class ServerUDP
 {
-    static string configFile = @"../Setting.json";
-    static string dnsFile = @"../DNSrecords.json";
-    static Setting? setting;
-    static List<DNSRecord> dnsRecords = new List<DNSRecord>();
+    static string configFile = "../Setting.json";
+    static string configContent = File.ReadAllText(configFile);
+    static Setting? setting = JsonSerializer.Deserialize<Setting>(configContent);
+    static string dnsRecordsFile = "./DNSrecords.json";
+    static List<DNSRecord>? dnsRecords;
+    static int ackCount = 0;
+    static int expectedAcks = 2;
 
     public static void start()
     {
-        LoadSettings();
-        LoadDNSRecords();
-        UdpClient server = CreateSocket();
-        HandleClient(server);
-        server.Close();
-    }
-
-    static void LoadSettings()
-    {
-        string configContent = File.ReadAllText(configFile);
-        setting = JsonSerializer.Deserialize<Setting>(configContent);
-    }
-
-    static void LoadDNSRecords()
-    {
-        string dnsFile = @"DNSrecords.json"; // <== Corrected path!
-
-        if (!File.Exists(dnsFile))
+        if (setting == null)
         {
-            Console.WriteLine($"[ERROR] {dnsFile} not found. Creating a default file...");
-            File.WriteAllText(dnsFile, "[]"); // Prevents crashing
-        }
-
-        string dnsContent = File.ReadAllText(dnsFile);
-        dnsRecords = JsonSerializer.Deserialize<List<DNSRecord>>(dnsContent) ?? new List<DNSRecord>();
-
-        Console.WriteLine($"[INFO] Loaded {dnsRecords.Count} DNS records.");
-    }
-
-
-
-
-    static UdpClient CreateSocket()
-    {
-        UdpClient server = new UdpClient(setting.ServerPortNumber);
-        return server;
-    }
-
-    static void HandleClient(UdpClient server)
-    {
-        while (true)
-        {
-            Message message = ReceiveMessage(server);
-            Console.WriteLine($"[SERVER] Received {message.MsgType}");
-
-            switch (message.MsgType)
-            {
-                case MessageType.Hello:
-                    Console.WriteLine("[SERVER] Sending Welcome");
-                    SendMessage(server, new Message { MsgId = message.MsgId, MsgType = MessageType.Welcome });
-                    break;
-
-                case MessageType.DNSLookup:
-                    Console.WriteLine($"[SERVER] Looking up: {message.Content}");
-                    ProcessDNSLookup(server, message);
-                    break;
-
-                case MessageType.Ack:
-                    Console.WriteLine("[SERVER] Received Acknowledgment.");
-                    break;
-
-                case MessageType.End:
-                    Console.WriteLine("[SERVER] Client Disconnected.");
-                    return;
-
-                default:
-                    Console.WriteLine("[SERVER] Unknown message type.");
-                    break;
-            }
-        }
-    }
-
-
-
-    static void ProcessDNSLookup(UdpClient server, Message request)
-    {
-        string domain = request.Content?.ToString();
-        Console.WriteLine($"[SERVER] Searching DNS for {domain}");
-
-        if (string.IsNullOrEmpty(domain))
-        {
-            Console.WriteLine("[SERVER] ERROR: Received an empty domain request.");
-            SendMessage(server, new Message { MsgId = request.MsgId, MsgType = MessageType.Error, Content = "Invalid request" });
+            Console.WriteLine("Failed to load settings.");
             return;
         }
 
-        var record = dnsRecords.FirstOrDefault(r => r.Name == domain);
-
-        if (record != null)
+        if (File.Exists(dnsRecordsFile))
         {
-            Console.WriteLine($"[SERVER] Found: {record.Value}");
-            SendMessage(server, new Message { MsgId = request.MsgId, MsgType = MessageType.DNSLookupReply, Content = record });
+            string dnsContent = File.ReadAllText(dnsRecordsFile);
+            dnsRecords = JsonSerializer.Deserialize<List<DNSRecord>>(dnsContent);
         }
         else
         {
-            Console.WriteLine($"[SERVER] ERROR: {domain} not found.");
-            SendMessage(server, new Message { MsgId = request.MsgId, MsgType = MessageType.Error, Content = "Domain not found" });
+            Console.WriteLine("[SERVER] DNS records file not found.");
+            return;
         }
-    }
 
+        IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(setting.ServerIPAddress), setting.ServerPortNumber);
+        using Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
-
-    static void SendMessage(UdpClient server, Message message)
-    {
-        byte[] data = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message));
-        server.Send(data, data.Length, new IPEndPoint(IPAddress.Parse(setting.ClientIPAddress), setting.ClientPortNumber));
-    }
-
-    static Message ReceiveMessage(UdpClient server)
-    {
         try
         {
-            IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
-            byte[] data = server.Receive(ref remoteEP);
-            return JsonSerializer.Deserialize<Message>(Encoding.UTF8.GetString(data));
+            socket.Bind(serverEndPoint);
+            Console.WriteLine("[SERVER] Listening on " + setting.ServerIPAddress + ":" + setting.ServerPortNumber);
+
+            while (true)
+            {
+                try
+                {
+                    byte[] receiveBuffer = new byte[1024];
+                    EndPoint clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
+                    int receivedBytes = socket.ReceiveFrom(receiveBuffer, ref clientEndPoint);
+
+                    string receivedData = Encoding.UTF8.GetString(receiveBuffer, 0, receivedBytes);
+                    Message? receivedMessage = JsonSerializer.Deserialize<Message>(receivedData);
+
+                    if (receivedMessage != null)
+                    {
+                        Console.WriteLine("[SERVER] Received: " + receivedData);
+
+                        if (receivedMessage.MsgType == MessageType.Hello)
+                        {
+                            Message welcomeMessage = new Message
+                            {
+                                MsgId = receivedMessage.MsgId + 1,
+                                MsgType = MessageType.Welcome,
+                                Content = "Welcome from server"
+                            };
+
+                            byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(welcomeMessage));
+                            socket.SendTo(sendBuffer, clientEndPoint);
+                            Console.WriteLine("[SERVER] Sent: " + JsonSerializer.Serialize(welcomeMessage));
+                        }
+                        else if (receivedMessage.MsgType == MessageType.DNSLookup)
+                        {
+                            var lookupData = JsonSerializer.Deserialize<JsonElement>(receivedMessage.Content.ToString());
+                            string? type = lookupData.GetProperty("Type").GetString();
+                            string? name = lookupData.GetProperty("Name").GetString();
+
+                            var record = dnsRecords?.Find(r => r.Type == type && r.Name == name);
+
+                            if (record != null)
+                            {
+                                Message dnsReplyMessage = new Message
+                                {
+                                    MsgId = receivedMessage.MsgId,
+                                    MsgType = MessageType.DNSLookupReply,
+                                    Content = record
+                                };
+
+                                byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(dnsReplyMessage));
+                                socket.SendTo(sendBuffer, clientEndPoint);
+                                Console.WriteLine("[SERVER] Sent DNSLookupReply: " + JsonSerializer.Serialize(dnsReplyMessage));
+                            }
+                            else
+                            {
+                                Message errorMessage = new Message
+                                {
+                                    MsgId = receivedMessage.MsgId,
+                                    MsgType = MessageType.Error,
+                                    Content = "Domain not found"
+                                };
+
+                                byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(errorMessage));
+                                socket.SendTo(sendBuffer, clientEndPoint);
+                                Console.WriteLine("[SERVER] Sent Error: " + JsonSerializer.Serialize(errorMessage));
+                            }
+                        }
+                        else if (receivedMessage.MsgType == MessageType.Ack)
+                        {
+                            Console.WriteLine("[SERVER] Received Ack for MsgId: " + receivedMessage.Content);
+                            ackCount++;
+
+                            if (ackCount >= expectedAcks)
+                            {
+                                Message endMessage = new Message
+                                {
+                                    MsgId = new Random().Next(1, 10000),
+                                    MsgType = MessageType.End,
+                                    Content = "End of DNS Lookup process"
+                                };
+
+                                byte[] sendBuffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(endMessage));
+                                socket.SendTo(sendBuffer, clientEndPoint);
+                                Console.WriteLine("[SERVER] Sent End Message: " + JsonSerializer.Serialize(endMessage));
+
+                                ackCount = 0;
+                            }
+                        }
+                    }
+                }
+                catch (SocketException ex)
+                {
+                    if (ex.SocketErrorCode == SocketError.ConnectionReset || ex.SocketErrorCode == SocketError.NetworkDown)
+                    {
+                        Console.WriteLine("[SERVER] Client disconnected or connection reset. Continuing...");
+                        continue;
+                    }
+                    Console.WriteLine("[SERVER] Socket error: " + ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("[SERVER] Error in receiving or processing message: " + ex.Message);
+                }
+            }
         }
-        catch (SocketException ex)
+        catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Connection issue: {ex.Message}");
-            return new Message { MsgType = MessageType.Error, Content = "Connection lost" };
+            Console.WriteLine("[SERVER] Error: " + ex.Message);
         }
     }
 }
-
