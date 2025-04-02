@@ -35,6 +35,11 @@ class ClientUDP
         if (!LoadSettings())
             return;
 
+        if (setting == null || string.IsNullOrEmpty(setting.ServerIPAddress))
+        {
+            throw new InvalidOperationException("[CLIENT] Invalid settings: ServerIPAddress is null or empty.");
+        }
+
         IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Parse(setting.ServerIPAddress), setting.ServerPortNumber);
         Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
